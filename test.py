@@ -118,79 +118,41 @@ for root, dirs, files in os.walk(source_xml_dir):
             for i_gt,object_gt in enumerate(objects_gt):
                 for i_pred,object_pred in enumerate(objects_pred):
                     iou = iou_comp(object_pred['bndbox'],object_gt['bndbox'])
-                    if iou > 0:
-                        comparison_tmp = {'class_gt':object_gt['name'],
-                                          'class_pred':object_pred['name'],
-                                          'index_gt':i_gt,
-                                          'index_pred':i_pred,
-                                          'confidence':object_pred['confidence'],
-                                          'iou':iou}
-                        comparison_results.append(comparison_tmp)
-                        if iou > iou_thresh:
-                            if object_gt['name']==object_pred['name']:
-                                TP.append([i_gt,i_pred,iou,object_pred['confidence']])
-                            else:
-                                FP.append([i_gt,i_pred,iou,object_pred['confidence']])
-                        if iou < iou_thresh:
-                            if object_gt['name']==object_pred['name']:
-                                FP.append([i_gt,i_pred,iou,object_pred['confidence']])
-                                
+                    if iou > iou_thresh:
+                        if object_gt['name']==object_pred['name']:
+                            TP.append([i_gt,i_pred,iou,object_pred['confidence']])
                             
             # TP refine
-#            TP.append([1,2,0.5,0.8])
-#            TP.append([1,3,0.1,0.5])
             TP = np.array(TP)
             TP = TP[np.lexsort((-TP[:,3],-TP[:,2]))]
             TP_mask = []
-            FP_mask = []
             visited_gt = []
             visited_pred = []
             for key,element in enumerate(TP):
-                if (element[0] in visited_gt) or (element[1] in visited_pred):
+                if (element[0] in visited_gt):# or (element[1] in visited_pred):
                     TP_mask.append(False)
-                    FP_mask.append(True)
                 else:
                     visited_gt.append(element[0])
                     visited_pred.append(element[1])
                     TP_mask.append(True)
-                    FP_mask.append(False)
-            FP_addition = TP[FP_mask]
             TP = TP[TP_mask]
+            
+            # FP count
+            for i_pred,object_pred in enumerate(objects_pred):
+                if i_pred not in TP[:,1]:
+                    FP.append([i_pred,object_pred['confidence']])
             FP = np.array(FP)
+
+            # FN count
+            for i_gt,object_gt in enumerate(objects_gt):
+                if i_gt not in TP[:,0]:
+                    FN.append([i_gt])
+            FN = np.array(FN)
             
-            if FP_addition.shape[0]>0:
-                if FP.shape[0]>0:
-                    FP = np.concatenate((FP, FP_addition), axis=0)
-                else:
-                    FP = FP_addition.copy()
-            
-# =============================================================================
-#             Is it correct? FPs should not be repeated naturally, so I did no 
-#                    refining.
-# =============================================================================
-            
-            del FP_addition
             del visited_pred
             del visited_gt
             del TP_mask
-            del FP_mask
             
-            # FNs
-            
-            detected_gt_indices = []
-            detected_pred_indices = []
-            detected_gt_iou = []
-            for intersection in comparison_results:
-                detected_gt_indices.append(intersection['index_gt'])
-                detected_pred_indices.append(intersection['index_pred'])
-                detected_gt_iou.append(intersection['iou'])
-            expected_gts = list(range(len(objects_gt)))
-            FN = list(set(expected_gts).difference(detected_gt_indices))       # Report missing values from ground trut objects
-            # TP
-            
-            detected_gt = np.array(
-                    [detected_gt_indices,detected_pred_indices,detected_gt_iou]# Table of detected gts and corresponding preds and iou
-                    ).T
             
 # =============================================================================
 # Average FPS calulator
