@@ -44,7 +44,9 @@ def predict(frame_img):
               {'bndbox':{'xmax':2704,'xmin':2665,'ymax':1731,'ymin':1710},
                          'name':'33','confidence':0.99},
               {'bndbox':{'xmax':2704,'xmin':2665,'ymax':1731,'ymin':1710},
-                         'name':'36','confidence':0.99}
+                         'name':'36','confidence':0.99},
+              {'bndbox':{'xmax':1170,'xmin':1130,'ymax':1894,'ymin':1823},
+                         'name':'33','confidence':0.83}
     ]
     return result
 
@@ -88,9 +90,9 @@ for root, dirs, files in os.walk(source_xml_dir):
         if file.endswith(".xml"):
             xml_file = os.path.join(root, file)
             img_file = source_img_dir+str.split(file,'.')[0]+'.jpg'
-            # =============================================================================
-            #             Read GT data
-            # =============================================================================
+# =============================================================================
+#             Read GT data
+# =============================================================================
             frame = imread(img_file)
             tree_root = None
             with open(xml_file,'rb') as f:
@@ -101,22 +103,23 @@ for root, dirs, files in os.walk(source_xml_dir):
                 object_gt['bndbox']['xmin'] = int(object_gt['bndbox']['xmin'])
                 object_gt['bndbox']['ymax'] = int(object_gt['bndbox']['ymax'])
                 object_gt['bndbox']['ymin'] = int(object_gt['bndbox']['ymin'])
-            # =============================================================================
-            #             Prediction run
-            # =============================================================================
+# =============================================================================
+#             Prediction run
+# =============================================================================
             start_time = time.time()
             objects_pred = predict(frame)
             frame_times.append(time.time() - start_time)
-            # =============================================================================
-            #             Result vs. GT comparison
-            # =============================================================================
-            comparison_results = []
-            FN = []
+# =============================================================================
+#             Result vs. GT comparison
+# =============================================================================
+            object_union = []
+            object_pred_array = []
             TP = []
             FP = []
-            # IOU computation
+            
             for i_gt,object_gt in enumerate(objects_gt):
                 for i_pred,object_pred in enumerate(objects_pred):
+                    # IOU computation   
                     iou = iou_comp(object_pred['bndbox'],object_gt['bndbox'])
                     if iou > iou_thresh:
                         if object_gt['name']==object_pred['name']:
@@ -139,27 +142,70 @@ for root, dirs, files in os.walk(source_xml_dir):
             
             # FP count
             for i_pred,object_pred in enumerate(objects_pred):
-                if i_pred not in TP[:,1]:
-                    FP.append([i_pred,object_pred['confidence']])
-            FP = np.array(FP)
-
+                is_TP = 0
+                if i_pred in TP[:,1]:
+                    is_TP = 1
+                object_pred_array.append([i_pred,object_pred['confidence'],is_TP,0,0]) # predID,confidence,TP,percision,recall
+#                if i_pred not in TP[:,1]:
+#                    FP.append([i_pred,object_pred['confidence']])
+#            FP = np.array(FP)
+            
             # FN count
-            for i_gt,object_gt in enumerate(objects_gt):
-                if i_gt not in TP[:,0]:
-                    FN.append([i_gt])
-            FN = np.array(FN)
+#            for i_gt,object_gt in enumerate(objects_gt):
+#                if i_gt not in TP[:,0]:
+#                    FN.append([i_gt])
+#            FN = np.array(FN)
             
             del visited_pred
             del visited_gt
             del TP_mask
             
-            
 # =============================================================================
-# Average FPS calulator
+#            Compute AP
+# =============================================================================
+            # For all classes, make a sorted list of percision and recall
+            object_pred_array = np.array(object_pred_array)
+            object_pred_array = object_pred_array[object_pred_array[:,1].argsort()[::-1]]
+            
+            all_possible_positives = TP.shape[0]
+            accumulated_TP = 0
+            
+            for key,item in enumerate(object_pred_array):
+                if item[2]==1:
+                    accumulated_TP=accumulated_TP+1
+
+                percision = accumulated_TP/(key+1)
+                recall = accumulated_TP/all_possible_positives
+                object_pred_array[key,3] = percision
+                object_pred_array[key,4] = recall
+                
+            # Generate the max percision list (based on max recall)
+            buffer_index = 0
+            max_percision_val = 0
+            max_percision = np.zeros((11,2),np.float64)
+            key = 0
+            for recall in range(0,11):
+                recall = recall/10
+                max_percision[key,1] = recall
+                for item in object_pred_array:
+                    # Find the last row having (a recall)<=(the recall)
+                    if item[4]>recall:
+                        break
+                    if item[3]>max_percision_val:
+                        max_percision_val = item[3]
+                max_percision[key,0] = max_percision_val
+                key = key+1
+                
+            AP = sum(max_percision[:,0])/11
+            frame_APs.append(AP)
+
+# =============================================================================
+# Average FPS and AP calculator
 # =============================================================================
 total_time = float(sum(frame_times))
 total_frames = float(len(frame_times))
 average_FPS = float(total_frames/total_time)
+average_AP = float(sum(frame_APs)/total_frames)
 
 
 
