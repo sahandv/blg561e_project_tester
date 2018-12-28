@@ -195,7 +195,9 @@ for root, dirs, files in os.walk(source_xml_dir):
                 recall = accumulated_TP/all_possible_positives
                 object_pred_array[key,3] = percision
                 object_pred_array[key,4] = recall
-                
+# =============================================================================
+#                 Review bug from here ++++
+# =============================================================================
             # Generate the max percision list (based on max recall)
             buffer_index = 0
             max_percision_val = 0
