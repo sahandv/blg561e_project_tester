@@ -21,7 +21,8 @@ import time
 #    excluding other processes from time calculations, you will be asked to
 #    provide predict function in your code. This will make the competition fair 
 #    for everyone.
-#    In this script, we will import your predict function.
+#    In this script, we will import your predict function and initialization 
+#    block for your model.
 #
 #    This function should:
 #    * Get the frame data (make sure tu use RGB and not BGR in your training. 
@@ -31,6 +32,18 @@ import time
 #
 #    (Remember that you have to provide the predict function and your trained
 #    model yourself. This predict function is only for demonstration purpose. )
+# =============================================================================
+
+# =============================================================================
+# INITIALIZATION BLOCK FOR YOUR MODEL:
+# =============================================================================
+"""
+Write your initialization code here. you may import your model and weights 
+and everything here.
+"""
+
+# =============================================================================
+# SAMPLE predict() FUNCTION:
 # =============================================================================
 def predict(frame_img):
     result = [{'bndbox':{'xmax':1170,'xmin':1130,'ymax':1894,'ymin':1823},
@@ -81,7 +94,7 @@ source_xml_dir = 'sample_data/annotations/'
 source_img_dir = 'sample_data/JPEGImages/'
 frame_times = []
 frame_APs = []
-iou_thresh = 0.050
+iou_thresh = 0.30
 # =============================================================================
 # Iterate over files
 # =============================================================================
@@ -124,10 +137,13 @@ for root, dirs, files in os.walk(source_xml_dir):
                     if iou > iou_thresh:
                         if object_gt['name']==object_pred['name']:
                             TP.append([i_gt,i_pred,iou,object_pred['confidence']])
+            
                             
             # TP refine
             TP = np.array(TP)
-            TP = TP[np.lexsort((-TP[:,3],-TP[:,2]))]
+            if TP.shape[0]>0:
+                TP = TP[np.lexsort((-TP[:,3],-TP[:,2]))]
+            
             TP_mask = []
             visited_gt = []
             visited_pred = []
@@ -143,8 +159,9 @@ for root, dirs, files in os.walk(source_xml_dir):
             # FP count
             for i_pred,object_pred in enumerate(objects_pred):
                 is_TP = 0
-                if i_pred in TP[:,1]:
-                    is_TP = 1
+                if TP.shape[0]>0:
+                    if i_pred in TP[:,1]:
+                        is_TP = 1
                 object_pred_array.append([i_pred,object_pred['confidence'],is_TP,0,0]) # predID,confidence,TP,percision,recall
 #                if i_pred not in TP[:,1]:
 #                    FP.append([i_pred,object_pred['confidence']])
@@ -167,7 +184,7 @@ for root, dirs, files in os.walk(source_xml_dir):
             object_pred_array = np.array(object_pred_array)
             object_pred_array = object_pred_array[object_pred_array[:,1].argsort()[::-1]]
             
-            all_possible_positives = TP.shape[0]
+            all_possible_positives = len(object_gt) #TP.shape[0]
             accumulated_TP = 0
             
             for key,item in enumerate(object_pred_array):
@@ -207,5 +224,6 @@ total_frames = float(len(frame_times))
 average_FPS = float(total_frames/total_time)
 average_AP = float(sum(frame_APs)/total_frames)
 
-
+print('mean FPS',average_FPS)
+print('mean AP',average_AP)
 
