@@ -58,15 +58,15 @@ def predict(frame_img):
                          'name':'33','confidence':0.99},
               {'bndbox':{'xmax':2704,'xmin':2665,'ymax':1731,'ymin':1710},
                          'name':'36','confidence':0.99},
-              {'bndbox':{'xmax':1170,'xmin':1130,'ymax':1894,'ymin':1823},
-                         'name':'33','confidence':0.83}
+              {'bndbox':{'xmax':2745,'xmin':2720,'ymax':1736,'ymin':1700},
+                         'name':'32','confidence':0.83}
     ]
     return result
 
 # =============================================================================
 # Test Code Start
 # =============================================================================
-    
+
 def iou_comp(bbx_a,bbx_b):
     assert bbx_a['xmin'] < bbx_a['xmax']
     assert bbx_a['ymin'] < bbx_a['ymax']
@@ -94,7 +94,8 @@ source_xml_dir = 'sample_data/annotations/'
 source_img_dir = 'sample_data/JPEGImages/'
 frame_times = []
 frame_APs = []
-iou_thresh = 0.30
+iou_thresh = 0.10
+debug = True
 # =============================================================================
 # Iterate over files
 # =============================================================================
@@ -182,42 +183,46 @@ for root, dirs, files in os.walk(source_xml_dir):
 # =============================================================================
             # For all classes, make a sorted list of percision and recall
             object_pred_array = np.array(object_pred_array)
-            object_pred_array = object_pred_array[object_pred_array[:,1].argsort()[::-1]]
-            
-            all_possible_positives = len(object_gt) #TP.shape[0]
+            all_possible_positives = len(objects_gt) #TP.shape[0]
             accumulated_TP = 0
             
-            for key,item in enumerate(object_pred_array):
-                if item[2]==1:
-                    accumulated_TP=accumulated_TP+1
-
-                percision = accumulated_TP/(key+1)
-                recall = accumulated_TP/all_possible_positives
-                object_pred_array[key,3] = percision
-                object_pred_array[key,4] = recall
-# =============================================================================
-#                 Review bug from here ++++
-# =============================================================================
-            # Generate the max percision list (based on max recall)
-            buffer_index = 0
-            max_percision_val = 0
-            max_percision = np.zeros((11,2),np.float64)
-            key = 0
-            for recall in range(0,11):
-                recall = recall/10
-                max_percision[key,1] = recall
-                for item in object_pred_array:
-                    # Find the last row having (a recall)<=(the recall)
-                    if item[4]>recall:
-                        break
-                    if item[3]>max_percision_val:
-                        max_percision_val = item[3]
-                max_percision[key,0] = max_percision_val
-                key = key+1
+            if object_pred_array.shape[0]>0:
+                object_pred_array = object_pred_array[object_pred_array[:,1].argsort()[::-1]]
+                for key,item in enumerate(object_pred_array):
+                    if item[2]==1:
+                        accumulated_TP=accumulated_TP+1
+                    percision = accumulated_TP/(key+1)
+                    recall = accumulated_TP/all_possible_positives
+                    object_pred_array[key,3] = percision
+                    object_pred_array[key,4] = recall
+    
+                # Generate the max percision list (based on max recall)
+                buffer_index = 0
+                max_percision_val = 0
+                max_percision = np.zeros((int(object_pred_array[-1,4]*10+1),2),np.float64)
+                key = 0
+                AP = 0
+                for recall in range(0,int(object_pred_array[-1,4]*10+1)):
+                    recall = recall/10
+                    max_percision[key,1] = recall
+                    max_percision[key,0] = max(object_pred_array[object_pred_array[:,4]>=recall,3])
+                    if key>0:
+                        AP = ((max_percision[key,0]+max_percision[key-1,0])/20)+AP
+                    key = key+1
                 
-            AP = sum(max_percision[:,0])/11
-            frame_APs.append(AP)
+                if debug:
+                    print('max AP table for',file,':\n',max_percision)
+            else:
+                if debug:
+                    print('max AP table for',file,': []')
+                if all_possible_positives>0:
+                    # nothing detected, but there is gt
+                    AP = 0
+                else:
+                    # nothing detected and there is no gt
+                    AP = 1
 
+            frame_APs.append(AP)
 # =============================================================================
 # Average FPS and AP calculator
 # =============================================================================
