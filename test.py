@@ -59,7 +59,7 @@ def predict(frame_img):
               {'bndbox':{'xmax':2704,'xmin':2665,'ymax':1731,'ymin':1710},
                          'name':'36','confidence':0.99},
               {'bndbox':{'xmax':2745,'xmin':2720,'ymax':1736,'ymin':1700},
-                         'name':'32','confidence':0.83}
+                         'name':'39','confidence':0.83}
     ]
     return result
 
@@ -206,8 +206,7 @@ for root, dirs, files in os.walk(source_xml_dir):
                     recall = recall/10
                     max_percision[key,1] = recall
                     max_percision[key,0] = max(object_pred_array[object_pred_array[:,4]>=recall,3])
-                    if key>0:
-                        AP = ((max_percision[key,0]+max_percision[key-1,0])/20)+AP
+                    AP = ((max_percision[key,0])/11)+AP
                     key = key+1
                 
                 if debug:
