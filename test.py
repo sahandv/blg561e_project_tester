@@ -193,9 +193,9 @@ for root, dirs, files in os.walk(source_xml_dir):
                 del visited_pred
                 del visited_gt
                 del TP_mask
-    # =============================================================================
-    #            Compute AP
-    # =============================================================================
+# =============================================================================
+#            Compute AP
+# =============================================================================
                 # For all classes, make a sorted list of percision and recall
                 object_pred_array = np.array(object_pred_array)
                 all_possible_positives = len(objects_gt) #TP.shape[0]
