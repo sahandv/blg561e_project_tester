@@ -21,17 +21,21 @@ import time
 #    excluding other processes from time calculations, you will be asked to
 #    provide predict function in your code. This will make the competition fair 
 #    for everyone.
-#    In this script, we will import your predict function and initialization 
+#    In this script, we will import your predict function and an initialization 
 #    block for your model.
 #
 #    This function should:
-#    * Get the frame data (make sure tu use RGB and not BGR in your training. 
+#    * Get the frame data (make sure to use RGB and not BGR in your training. 
 #      otherwise, convert your images to BGR from RGB in predict function.)
 #    * Return detection result as a list of object dictionaries. (Similar to 
 #      the sample results provided. Coordinates as integer and name as string.)
 #
-#    (Remember that you have to provide the predict function and your trained
-#    model yourself. This predict function is only for demonstration purpose. )
+#    NOTES:
+#     - Remember that you have to provide the predict function and your trained
+#       model yourself. This predict function is only for demonstration purpose. 
+#     - We are using a very generous IoU threshold of 0.3
+#     - AP is being measured for all classes and not class-by-class
+#     - You have to provide your model in pytorch
 # =============================================================================
 
 # =============================================================================
@@ -94,7 +98,7 @@ source_xml_dir = 'sample_data/annotations/'
 source_img_dir = 'sample_data/JPEGImages/'
 frame_times = []
 frame_APs = []
-iou_thresh = 0.10
+iou_thresh = 0.30
 debug = True
 # =============================================================================
 # Iterate over files
