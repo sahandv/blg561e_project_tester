@@ -225,7 +225,7 @@ for root, dirs, files in os.walk(source_xml_dir):
                         key = key+1
                     
                     if debug:
-                        print('max AP table for',file,':\n',max_percision,"\n")
+                        print('max AP table for',file,':\n',max_percision)
                 else:
                     if debug:
                         print('max AP table for',file,': []')
@@ -237,6 +237,8 @@ for root, dirs, files in os.walk(source_xml_dir):
                         AP = 1
 
             frame_APs.append(AP)
+            if debug:
+                print("AP: ",AP,"\n")
 # =============================================================================
 # Average FPS and AP calculator
 # =============================================================================
