@@ -39,7 +39,7 @@ import time
 # =============================================================================
 """
 Write your initialization code here. you may import your model and weights 
-and everything here.
+and everything else here.
 """
 
 # =============================================================================
@@ -64,7 +64,7 @@ def predict(frame_img):
     return result
 
 # =============================================================================
-# Test Code Start
+# Test Code Start - (It is a good idea to not to change anything from here on.)
 # =============================================================================
 
 def iou_comp(bbx_a,bbx_b):
@@ -109,14 +109,20 @@ for root, dirs, files in os.walk(source_xml_dir):
 # =============================================================================
             frame = imread(img_file)
             tree_root = None
-            with open(xml_file,'rb') as f:
-                tree_root = xd.parse(f)
-            objects_gt = tree_root['annotation']['object']
-            for object_gt in objects_gt:
-                object_gt['bndbox']['xmax'] = int(object_gt['bndbox']['xmax'])
-                object_gt['bndbox']['xmin'] = int(object_gt['bndbox']['xmin'])
-                object_gt['bndbox']['ymax'] = int(object_gt['bndbox']['ymax'])
-                object_gt['bndbox']['ymin'] = int(object_gt['bndbox']['ymin'])
+            no_gt = False
+            AP = 0
+            try:
+                with open(xml_file,'rb') as f:
+                    tree_root = xd.parse(f,force_list={'object'})
+                objects_gt = tree_root['annotation']['object']
+                for object_gt in objects_gt:
+                    object_gt['bndbox']['xmax'] = int(object_gt['bndbox']['xmax'])
+                    object_gt['bndbox']['xmin'] = int(object_gt['bndbox']['xmin'])
+                    object_gt['bndbox']['ymax'] = int(object_gt['bndbox']['ymax'])
+                    object_gt['bndbox']['ymin'] = int(object_gt['bndbox']['ymin'])
+            except KeyError:
+                print("No gt data in",file)
+                no_gt = True
 # =============================================================================
 #             Prediction run
 # =============================================================================
@@ -126,100 +132,106 @@ for root, dirs, files in os.walk(source_xml_dir):
 # =============================================================================
 #             Result vs. GT comparison
 # =============================================================================
-            object_union = []
-            object_pred_array = []
-            TP = []
-            FP = []
-            
-            for i_gt,object_gt in enumerate(objects_gt):
-                for i_pred,object_pred in enumerate(objects_pred):
-                    # IOU computation   
-                    iou = iou_comp(object_pred['bndbox'],object_gt['bndbox'])
-                    if iou > iou_thresh:
-                        if object_gt['name']==object_pred['name']:
-                            TP.append([i_gt,i_pred,iou,object_pred['confidence']])
-            
-                            
-            # TP refine
-            TP = np.array(TP)
-            if TP.shape[0]>0:
-                TP = TP[np.lexsort((-TP[:,3],-TP[:,2]))]
-            
-            TP_mask = []
-            visited_gt = []
-            visited_pred = []
-            for key,element in enumerate(TP):
-                if (element[0] in visited_gt):# or (element[1] in visited_pred):
-                    TP_mask.append(False)
-                else:
-                    visited_gt.append(element[0])
-                    visited_pred.append(element[1])
-                    TP_mask.append(True)
-            TP = TP[TP_mask]
-            
-            # FP count
-            for i_pred,object_pred in enumerate(objects_pred):
-                is_TP = 0
-                if TP.shape[0]>0:
-                    if i_pred in TP[:,1]:
-                        is_TP = 1
-                object_pred_array.append([i_pred,object_pred['confidence'],is_TP,0,0]) # predID,confidence,TP,percision,recall
-#                if i_pred not in TP[:,1]:
-#                    FP.append([i_pred,object_pred['confidence']])
-#            FP = np.array(FP)
-            
-            # FN count
-#            for i_gt,object_gt in enumerate(objects_gt):
-#                if i_gt not in TP[:,0]:
-#                    FN.append([i_gt])
-#            FN = np.array(FN)
-            
-            del visited_pred
-            del visited_gt
-            del TP_mask
-            
-# =============================================================================
-#            Compute AP
-# =============================================================================
-            # For all classes, make a sorted list of percision and recall
-            object_pred_array = np.array(object_pred_array)
-            all_possible_positives = len(objects_gt) #TP.shape[0]
-            accumulated_TP = 0
-            
-            if object_pred_array.shape[0]>0:
-                object_pred_array = object_pred_array[object_pred_array[:,1].argsort()[::-1]]
-                for key,item in enumerate(object_pred_array):
-                    if item[2]==1:
-                        accumulated_TP=accumulated_TP+1
-                    percision = accumulated_TP/(key+1)
-                    recall = accumulated_TP/all_possible_positives
-                    object_pred_array[key,3] = percision
-                    object_pred_array[key,4] = recall
-    
-                # Generate the max percision list (based on max recall)
-                buffer_index = 0
-                max_percision_val = 0
-                max_percision = np.zeros((int(object_pred_array[-1,4]*10+1),2),np.float64)
-                key = 0
-                AP = 0
-                for recall in range(0,int(object_pred_array[-1,4]*10+1)):
-                    recall = recall/10
-                    max_percision[key,1] = recall
-                    max_percision[key,0] = max(object_pred_array[object_pred_array[:,4]>=recall,3])
-                    AP = ((max_percision[key,0])/11)+AP
-                    key = key+1
-                
-                if debug:
-                    print('max AP table for',file,':\n',max_percision)
-            else:
-                if debug:
-                    print('max AP table for',file,': []')
-                if all_possible_positives>0:
-                    # nothing detected, but there is gt
+            if no_gt:
+                if len(objects_pred)>0:
                     AP = 0
                 else:
-                    # nothing detected and there is no gt
                     AP = 1
+            else:
+                object_union = []
+                object_pred_array = []
+                TP = []
+                FP = []
+                
+                for i_gt,object_gt in enumerate(objects_gt):
+                    for i_pred,object_pred in enumerate(objects_pred):
+                        # IOU computation   
+                        iou = iou_comp(object_pred['bndbox'],object_gt['bndbox'])
+                        if iou > iou_thresh:
+                            if object_gt['name']==object_pred['name']:
+                                TP.append([i_gt,i_pred,iou,object_pred['confidence']])
+                
+                                
+                # TP refine
+                TP = np.array(TP)
+                if TP.shape[0]>0:
+                    TP = TP[np.lexsort((-TP[:,3],-TP[:,2]))]
+                
+                TP_mask = []
+                visited_gt = []
+                visited_pred = []
+                for key,element in enumerate(TP):
+                    if (element[0] in visited_gt):# or (element[1] in visited_pred):
+                        TP_mask.append(False)
+                    else:
+                        visited_gt.append(element[0])
+                        visited_pred.append(element[1])
+                        TP_mask.append(True)
+                TP = TP[TP_mask]
+                
+                # FP count
+                for i_pred,object_pred in enumerate(objects_pred):
+                    is_TP = 0
+                    if TP.shape[0]>0:
+                        if i_pred in TP[:,1]:
+                            is_TP = 1
+                    object_pred_array.append([i_pred,object_pred['confidence'],is_TP,0,0]) # predID,confidence,TP,percision,recall
+    #                if i_pred not in TP[:,1]:
+    #                    FP.append([i_pred,object_pred['confidence']])
+    #            FP = np.array(FP)
+                
+                # FN count
+    #            for i_gt,object_gt in enumerate(objects_gt):
+    #                if i_gt not in TP[:,0]:
+    #                    FN.append([i_gt])
+    #            FN = np.array(FN)
+                
+                del visited_pred
+                del visited_gt
+                del TP_mask
+                
+    # =============================================================================
+    #            Compute AP
+    # =============================================================================
+                # For all classes, make a sorted list of percision and recall
+                object_pred_array = np.array(object_pred_array)
+                all_possible_positives = len(objects_gt) #TP.shape[0]
+                accumulated_TP = 0
+                
+                if object_pred_array.shape[0]>0:
+                    object_pred_array = object_pred_array[object_pred_array[:,1].argsort()[::-1]]
+                    for key,item in enumerate(object_pred_array):
+                        if item[2]==1:
+                            accumulated_TP=accumulated_TP+1
+                        percision = accumulated_TP/(key+1)
+                        recall = accumulated_TP/all_possible_positives
+                        object_pred_array[key,3] = percision
+                        object_pred_array[key,4] = recall
+        
+                    # Generate the max percision list (based on max recall)
+                    buffer_index = 0
+                    max_percision_val = 0
+                    max_percision = np.zeros((int(object_pred_array[-1,4]*10+1),2),np.float64)
+                    key = 0
+    
+                    for recall in range(0,int(object_pred_array[-1,4]*10+1)):
+                        recall = recall/10
+                        max_percision[key,1] = recall
+                        max_percision[key,0] = max(object_pred_array[object_pred_array[:,4]>=recall,3])
+                        AP = ((max_percision[key,0])/11)+AP
+                        key = key+1
+                    
+                    if debug:
+                        print('max AP table for',file,':\n',max_percision)
+                else:
+                    if debug:
+                        print('max AP table for',file,': []')
+                    if all_possible_positives>0:
+                        # nothing detected, but there is gt
+                        AP = 0
+                    else:
+                        # nothing detected and there is no gt
+                        AP = 1
 
             frame_APs.append(AP)
 # =============================================================================
