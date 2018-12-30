@@ -189,7 +189,6 @@ for root, dirs, files in os.walk(source_xml_dir):
                 del visited_pred
                 del visited_gt
                 del TP_mask
-                
     # =============================================================================
     #            Compute AP
     # =============================================================================
@@ -222,7 +221,7 @@ for root, dirs, files in os.walk(source_xml_dir):
                         key = key+1
                     
                     if debug:
-                        print('max AP table for',file,':\n',max_percision)
+                        print('max AP table for',file,':\n',max_percision,"\n")
                 else:
                     if debug:
                         print('max AP table for',file,': []')
@@ -241,7 +240,7 @@ total_time = float(sum(frame_times))
 total_frames = float(len(frame_times))
 average_FPS = float(total_frames/total_time)
 average_AP = float(sum(frame_APs)/total_frames)
-
+print("--- --- --- --- --- --- --- ---\nFinal Results:")
 print('mean FPS',average_FPS)
 print('mean AP',average_AP)
 
